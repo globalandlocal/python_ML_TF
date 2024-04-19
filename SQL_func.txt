@@ -1,0 +1,116 @@
+CREATE OR REPLACE FUNCTION std6_87.create_project_table(start_d date)
+	RETURNS bool
+	LANGUAGE plpgsql
+	VOLATILE
+AS $$
+	
+	
+	
+declare 
+inter interval = '1 month'::interval ;
+end_d date ;
+sql_exe text ;
+begin
+	end_d := start_d + inter+inter ;
+
+	sql_exe = 'drop table if exists std6_87.project cascade';
+	raise notice '%', sql_exe;
+	execute sql_exe ;
+
+	sql_exe = 'CREATE TABLE std6_87.project (
+	plant bpchar(4) NULL,
+	calday date NULL,
+	rpa_sat numeric NULL,
+	discount numeric NULL,
+	humans int8 NULL,
+	qty numeric NULL,
+	billnum_count int8 NULL,
+	qty_with_discount int8 NULL
+)
+DISTRIBUTED BY (plant, calday)
+PARTITION BY range (calday) 
+          (
+          START (''2020-01-01''::date) END (''2025-01-01''::date) EVERY (''1 mon''::interval),
+          default partition other
+          )';
+         
+	raise notice '%', sql_exe;
+	execute sql_exe ;
+
+
+
+sql_exe = 'with x as (
+select z.calday,z.plant, sum(z.discount) as discount,count(z.id) as qty_with_discount from (
+select distinct bh.plant  ,bh.calday ,c.id ,(case when p.type_promo= 1 then p.value else bi.rpa_sat/bi.qty/100*p.value end) as discount
+from std6_87.coupons c 
+left join std6_87.bills_item bi on c.billnum = bi.billnum and c.material = bi.material
+left join std6_87.promos p on c.promotion = p.promotion  and c.material =p.material 
+left join std6_87.bills_head bh on bh.billnum =c.billnum
+) 
+as z group by 1,2
+),
+ z as (
+select bh.plant, bh.calday,sum(bi.qty)as qty , sum(bi.rpa_sat) as rpa_sat, count(distinct bh.billnum) as billnum_count
+from std6_87.bills_head bh
+left join std6_87.bills_item bi on bh.billnum =bi.billnum 
+group by 1,2
+),
+c as (
+select t.plant ,t.calday ,sum(t.quantity) as humans
+from std6_87.traffic1 t
+group by 1,2
+)
+insert into std6_87.project 
+select c.plant,c.calday, z.rpa_sat,x.discount,c.humans, z.qty, z.billnum_count, x.qty_with_discount
+from c
+full join x on c.plant = x.plant and c.calday = x.calday
+left join z on c.plant = z.plant and c.calday = z.calday';
+
+	raise notice '%', sql_exe;
+	execute sql_exe ;
+	
+	return true ;
+end
+
+
+
+$$
+EXECUTE ON ANY;
+
+
+
+CREATE OR REPLACE FUNCTION std6_87.create_month_view(start_d date)
+	RETURNS bool
+	LANGUAGE plpgsql
+	VOLATILE
+AS $$
+	
+declare 
+inter interval = '1 month'::interval ;
+end_d date ;
+sql_exe text ;
+begin
+	end_d := start_d + inter ;
+
+	sql_exe = 'create view std6_87.view_project_month_'||replace(start_d::text, '-','_')||' as
+select p.plant,s.txt as name_of_plant, sum(rpa_sat) as rpa_sat, sum(discount) as discount, sum(rpa_sat)-sum(discount) as without_discount ,
+sum(qty) as qty_material, sum(billnum_count) as billnum_count,  sum(humans) as traffic, 
+sum(qty_with_discount) as discount_biilnumm, round(sum(qty_with_discount)/sum(qty)*100 , 1) as material_with_discount,
+round(sum(qty)/sum(billnum_count),2) as avg_material_in_billnum,  round(sum(billnum_count)/sum(humans)*100 , 2) as coef_conversion,
+round(sum(rpa_sat)/sum(billnum_count),1) as avg_billnum, round(sum(rpa_sat)/sum(humans),1) as avg_sales_on_human
+from std6_87.project p
+left join std6_87.stores s on p.plant = s.plant
+where p.calday between '''||start_d||''' and '''||end_d||'''
+group by 1,2
+order by 1;';
+	raise notice '%', sql_exe;
+	execute sql_exe ;
+
+	return true ;
+end
+
+
+
+
+$$
+EXECUTE ON ANY;

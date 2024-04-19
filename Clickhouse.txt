@@ -1,0 +1,59 @@
+create database std6_87_1 ENGINE = Atomic ;
+
+create  table if not exists std6_87_1.ch_plan_fact_ext (
+	region String NULL ,
+    region_name String NULL,
+    matdirec Int32 NULL,
+    distr_chan Int32 NULL,
+    name_chanel String NULL,
+    percentage_plan numeric(20,2) NULL,
+    best_sale_material String NULL,
+    brand String NULL,
+    txt String NULL,
+    price Int32 NULL
+)
+engine = PostgreSQL ('192.168.214.203:5432', 'adb', 'v_plan_fact_2021_01', 'std6_87', 'CH1AG2FqKcVH', 'std6_87');
+
+
+
+create or replace dictionary std6_87_1.price (
+	material Int32,
+	region String,
+	distr_chan Int32,
+	price Int32
+)
+primary key material
+source(PostgreSQL(port 5432 host '192.168.214.203'  db 'adb' table 'std6_87.price' password 'CH1AG2FqKcVH' user 'std6_87'))
+layout(COMPLEX_KEY_HASHED())
+lifetime (min 0 max 0);
+
+create or replace dictionary std6_87_1.chanel (
+	distr_chan Int32 ,
+	txtsh text 
+)
+primary key distr_chan
+source(PostgreSQL(port 5432 host '192.168.214.203'  db 'adb' table 'std6_87.price' password 'CH1AG2FqKcVH' user 'std6_87'))
+layout(COMPLEX_KEY_HASHED())
+lifetime (min 0 max 0);
+
+create or replace dictionary std6_87_1.region (
+	region String,
+	txt text 
+)
+primary key region
+source(PostgreSQL(port 5432 host '192.168.214.203'  db 'adb' table 'std6_87.price' password 'CH1AG2FqKcVH' user 'std6_87'))
+layout(COMPLEX_KEY_HASHED())
+lifetime (min 0 max 0);
+
+create or replace dictionary std6_87_1.product (
+	material Int32,
+	asgrp text ,
+	brand Int32,
+	matcateg varchar(4),
+	matdirec Int32,
+	txt text
+)
+primary key material
+source(PostgreSQL(port 5432 host '192.168.214.203'  db 'adb' table 'std6_87.price' password 'CH1AG2FqKcVH' user 'std6_87'))
+layout(COMPLEX_KEY_HASHED())
+lifetime (min 0 max 0);
